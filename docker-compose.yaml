@@ -1,0 +1,65 @@
+version: '3.3'
+
+services:
+  # core
+  external_viz_manager:
+    image: wasteant/wasteant:external_viz_manager-ubuntu.22.04
+    container_name: external_viz_manager-core
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    build:
+      context: .
+      args:
+        user: ${user}
+        userid: ${userid}
+        group: ${group}
+        groupid: ${groupid}
+    networks:
+      - internal
+    ports:
+      - 29051-29055:29051-29055
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - .:/home/$user/src
+    user: ${user}
+
+  # RabbitMQ Service
+  rabbitmq:
+    image: "rabbitmq:3-management-alpine"
+    container_name: external_viz_manager-rabbitmq
+    env_file: .env
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_INTERFACE_PORT}:15672"
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+    networks:
+      - internal
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_VHOST: "/"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  postgres:
+    image: postgres:latest
+    container_name: external_viz_manager-postgres
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: wasteantadmin@2024
+      POSTGRES_DB: external_vizualisation
+    networks:
+     - internal
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+networks:
+  internal:
+    driver: bridge 
+
+volumes:
+  postgres_data:
