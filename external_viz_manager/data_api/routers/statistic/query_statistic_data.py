@@ -121,6 +121,7 @@ description = """
 def get_stats(response: Response, request: StatsRequest = Depends()):
     results = {}
     try:
+        print(request.language)
         plant_info = None
         if not request.domain and not request.plant_id:
             results["error"] = {
@@ -159,7 +160,7 @@ def get_stats(response: Response, request: StatsRequest = Depends()):
         
         
         if not Language.objects.filter(code=request.language).exists():
-            request["error"] = {
+            results["error"] = {
                 "status_code": "not found",
                 "status_description": f"language {request.language} not found",
                 "deatil": f"language {request.language} not found",
@@ -169,12 +170,44 @@ def get_stats(response: Response, request: StatsRequest = Depends()):
             return results
         
         statistics = VizStatistics.objects.filter(plant=plant_info)
+        if not statistics:
+            results["error"] = {
+                "status_code": "not found",
+                "status_description": f"statistic for {plant_info.domain} [{plant_info.plant_id}] not found",
+                "deatil": f"statistic for {plant_info.domain} [{plant_info.plant_id}] not found",
+            }
+        
+            response.status_code = status.HTTP_404_NOT_FOUND
+            return results
+        
         language = Language.objects.get(code=request.language)
         
+        print(language)
         data = {}
         for stat in statistics:
             category = stat.sub_category.category
+            if not StatisticCategoryLocalization.objects.filter(category=category, language=language).exists():
+                results["error"] = {
+                    "status_code": "not found",
+                    "status_description": f"statistic localization for {language.name} for {plant_info.domain} [{plant_info.plant_id}] not found",
+                    "deatil": f"statistic localization for {language.name} for {plant_info.domain} [{plant_info.plant_id}] not found",
+                }
+            
+                response.status_code = status.HTTP_404_NOT_FOUND
+                return results
+            
             category_loc = StatisticCategoryLocalization.objects.get(category=category, language=language)
+            
+            if not StatisticSubCategoryLocalization.objects.filter(sub_category=stat.sub_category, language=language).exists():
+                results["error"] = {
+                    "status_code": "not found",
+                    "status_description": f"statistic sub category localization for {language.name} for {plant_info.domain} [{plant_info.plant_id}] not found",
+                    "deatil": f"statistic sub category localization for {language.name} for {plant_info.domain} [{plant_info.plant_id}] not found",
+                }
+            
+                response.status_code = status.HTTP_404_NOT_FOUND
+                return results
+            
             sub_categories_loc = StatisticSubCategoryLocalization.objects.get(sub_category=stat.sub_category, language=language)
             
             if category.category_id not in data:
